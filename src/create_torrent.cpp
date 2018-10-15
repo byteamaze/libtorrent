@@ -246,7 +246,7 @@ namespace libtorrent
 	}
 
 	void set_piece_hashes(create_torrent& t, std::string const& p
-		, boost::function<void(int)> const& f, error_code& ec)
+		, boost::function<void(int)> const& f, error_code& ec) try
 	{
 		// optimized path
 #ifdef TORRENT_BUILD_SIMULATOR
@@ -327,6 +327,11 @@ namespace libtorrent
 		ios.run(ec);
 #endif
 		disk_thread.abort(true);
+	}
+	catch (...)
+	{
+		disk_thread.abort(true);
+		throw;
 	}
 
 	create_torrent::~create_torrent() {}
