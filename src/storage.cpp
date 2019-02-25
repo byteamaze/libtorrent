@@ -40,6 +40,7 @@ POSSIBILITY OF SUCH DAMAGE.
 #include <set>
 #include <functional>
 #include <cstdio>
+#include <iostream>
 
 #include "libtorrent/aux_/disable_warnings_push.hpp"
 
@@ -735,6 +736,182 @@ namespace libtorrent {
 	{
 		return new default_storage(params, pool);
 	}
+    
+// -- piece_unit_storage --------------------------------------------------
+    
+namespace {
+    // this storage implementation does not write anything to disk
+    // and it pretends to read, and just leaves garbage in the buffers
+    // this is useful when simulating many clients on the same machine
+    // or when running stress tests and want to take the cost of the
+    // disk I/O out of the picture. This cannot be used for any kind
+    // of normal bittorrent operation, since it will just send garbage
+    // to peers and throw away all the data it downloads. It would end
+    // up being banned immediately
+    class piece_storage final : public storage_interface
+    {
+        std::string m_save_path;
+    public:
+        explicit piece_storage(storage_params const& params) : storage_interface(params.files) {
+            TORRENT_ASSERT(files().num_files() > 0);
+            m_save_path = complete(params.path);
+        }
+        // explicit piece_storage(file_storage const& fs) : storage_interface(fs) {}
+        bool has_any_file(storage_error&) override { return false; }
+        void initialize(storage_error&) override { }
+        
+        void set_file_priority(aux::vector<download_priority_t, file_index_t>&
+                               , storage_error&) override {}
+        void rename_file(file_index_t, std::string const&, storage_error&) override {}
+        void release_files(storage_error&) override {}
+        void delete_files(remove_flags_t, storage_error&) override {}
+        
+        status_t move_storage(std::string const&, move_flags_t, storage_error&) override { return status_t::no_error; }
+        
+        int readv(span<iovec_t const> bufs
+                  , piece_index_t const piece, int const offset
+                  , open_mode_t const flags, storage_error& error) override
+        {
+#ifdef TORRENT_SIMULATE_SLOW_READ
+            std::this_thread::sleep_for(seconds(1));
+#endif
+            file_handle handle = open_file(piece, open_mode::read_only | flags, error);
+            if (error) return -1;
+            
+            error_code e;
+            int const ret = int(handle->readv(offset, bufs, e, flags));
+            
+            // set this unconditionally in case the upper layer would like to treat
+            // short reads as errors
+            error.operation = operation_t::file_read;
+            
+            // we either get an error or 0 or more bytes read
+            TORRENT_ASSERT(e || ret >= 0);
+            TORRENT_ASSERT(ret <= bufs_size(bufs));
+            
+            if (e)
+            {
+                error.ec = e;
+                //                ec.file(file_index);
+                return -1;
+            }
+            
+            return ret;
+        }
+        
+        int writev(span<iovec_t const> bufs
+                   , piece_index_t const piece, int const offset
+                   , open_mode_t const flags, storage_error& error) override
+        {
+            file_handle handle = open_file(piece, open_mode::read_write, error);
+            if (error) return -1;
+            
+            error_code e;
+            int const ret = int(handle->writev(offset, bufs, e, flags));
+            
+            // set this unconditionally in case the upper layer would like to treat
+            // short reads as errors
+            error.operation = operation_t::file_write;
+            
+            // we either get an error or 0 or more bytes read
+            TORRENT_ASSERT(e || ret >= 0);
+            TORRENT_ASSERT(ret <= bufs_size(bufs));
+            
+            if (e)
+            {
+                error.ec = e;
+                //                ec.file(file_index);
+                return -1;
+            }
+            return ret;
+        }
+        
+        bool verify_resume_data(add_torrent_params const&
+                                , aux::vector<std::string, file_index_t> const&
+                                , storage_error&) override { return false; }
+        
+        file_handle open_file(piece_index_t const piece,
+                              open_mode_t mode, storage_error& ec) const
+        {
+            file_handle h = open_file_impl(piece, mode, ec.ec);
+            if (((mode & open_mode::rw_mask) != open_mode::read_only)
+                && ec.ec == boost::system::errc::no_such_file_or_directory)
+            {
+                // this means the directory the file is in doesn't exist.
+                // so create it
+                ec.ec.clear();
+                std::string path = piece_file_path(piece);
+                create_directories(parent_path(path), ec.ec);
+                
+                if (ec.ec)
+                {
+                    //                    ec.file(file_index_t);
+                    ec.operation = operation_t::mkdir;
+                    return file_handle();
+                }
+                
+                // if the directory creation failed, don't try to open the file again
+                // but actually just fail
+                h = open_file_impl(piece, mode, ec.ec);
+            }
+            if (ec.ec)
+            {
+                //                ec.file(file);
+                ec.operation = operation_t::file_open;
+                return file_handle();
+            }
+            TORRENT_ASSERT(h);
+            return h;
+        }
+        
+        file_handle open_file_impl(piece_index_t const piece,
+                                   open_mode_t mode, error_code& ec) const
+        {
+            if (m_settings && settings().get_bool(settings_pack::no_atime_storage)) mode |= open_mode::no_atime;
+            
+            // if we have a cache already, don't store the data twice by leaving it in the OS cache as well
+            if (m_settings
+                && settings().get_int(settings_pack::disk_io_write_mode)
+                == settings_pack::disable_os_cache)
+            {
+                mode |= open_mode::no_cache;
+            }
+            
+            file_handle file_ptr = std::make_shared<file>();
+            if (!file_ptr)
+            {
+                ec = error_code(boost::system::errc::not_enough_memory, generic_category());
+                return file_handle();
+            }
+            
+            std::string full_path = piece_file_path(piece);
+            if (!file_ptr->open(full_path, mode, ec))
+                return file_handle();
+            
+            return file_ptr;
+        }
+        
+        // file path for piece data
+        std::string piece_file_path(piece_index_t const piece) const {
+            std::string filename = "piece";
+//            filename.append(std::to_string(piece)).append(".part");
+            char pieceStr[12];
+            sprintf(pieceStr, "%d", piece);
+            filename.append(pieceStr).append(".part");
+            // open file to save piece
+            std::string ret;
+            ret.reserve(m_save_path.size() + filename.size() + 1);
+            ret.assign(m_save_path);
+            append_path(ret, filename);
+            return ret;
+        }
+    };
+}
+    
+    storage_interface* piece_storage_constructor(storage_params const& params, file_pool&)
+    {
+        return new piece_storage(params);
+    }
 
 	// -- disabled_storage --------------------------------------------------
 

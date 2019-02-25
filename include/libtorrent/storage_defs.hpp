@@ -135,6 +135,8 @@ namespace libtorrent {
 	TORRENT_EXPORT storage_interface* disabled_storage_constructor(storage_params const&, file_pool&);
 
 	TORRENT_EXPORT storage_interface* zero_storage_constructor(storage_params const&, file_pool&);
+    
+    TORRENT_EXPORT storage_interface* piece_storage_constructor(storage_params const&, file_pool&);
 }
 
 #endif
