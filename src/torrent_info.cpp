@@ -69,7 +69,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 namespace libtorrent {
 
-	from_span_t from_span;
+	TORRENT_EXPORT from_span_t from_span;
 
 	namespace {
 
@@ -192,6 +192,8 @@ namespace libtorrent {
 		}
 
 #if !TORRENT_USE_UNC_PATHS && defined TORRENT_WINDOWS
+#pragma message ("building for windows without UNC paths is deprecated")
+
 		// if we're not using UNC paths on windows, there
 		// are certain filenames we're not allowed to use
 		static const char const* reserved_names[] =
@@ -531,7 +533,7 @@ namespace {
 	{
 		ec.clear();
 		file f;
-		if (!f.open(filename, open_mode::read_only, ec)) return -1;
+		if (!f.open(filename, aux::open_mode::read_only, ec)) return -1;
 		std::int64_t s = f.get_size(ec);
 		if (ec) return -1;
 		v.resize(std::size_t(s));
@@ -938,7 +940,7 @@ namespace {
 		// hash the info-field to calculate info-hash
 		auto section = info.data_section();
 		m_info_hash = hasher(section).final();
-		if (info.data_section().size() >= std::numeric_limits<std::uint32_t>::max())
+		if (info.data_section().size() >= std::numeric_limits<int>::max())
 		{
 			ec = errors::metadata_too_large;
 			return false;
@@ -949,7 +951,7 @@ namespace {
 		m_info_section.reset(new char[aux::numeric_cast<std::size_t>(m_info_section_size)]);
 		std::memcpy(m_info_section.get(), section.data(), aux::numeric_cast<std::size_t>(m_info_section_size));
 		TORRENT_ASSERT(section[0] == 'd');
-		TORRENT_ASSERT(section[aux::numeric_cast<std::size_t>(m_info_section_size - 1)] == 'e');
+		TORRENT_ASSERT(section[m_info_section_size - 1] == 'e');
 
 		// when translating a pointer that points into the 'info' tree's
 		// backing buffer, into a pointer to our copy of the info section,
@@ -1318,19 +1320,10 @@ namespace {
 			if (!m_urls.empty())
 			{
 				// shuffle each tier
-				auto start = m_urls.begin();
-				std::vector<announce_entry>::iterator stop;
-				int current_tier = m_urls.front().tier;
-				for (stop = m_urls.begin(); stop != m_urls.end(); ++stop)
-				{
-					if (stop->tier != current_tier)
-					{
-						aux::random_shuffle(start, stop);
-						start = stop;
-						current_tier = stop->tier;
-					}
-				}
-				aux::random_shuffle(start, stop);
+				aux::random_shuffle(m_urls);
+				std::stable_sort(m_urls.begin(), m_urls.end()
+					, [](announce_entry const& lhs, announce_entry const& rhs)
+					{ return lhs.tier < rhs.tier; });
 			}
 		}
 
@@ -1377,7 +1370,7 @@ namespace {
 		{
 			web_seed_entry ent(maybe_url_encode(url_seeds.string_value().to_string())
 				, web_seed_entry::url_seed);
-			if (m_flags & multifile)
+			if ((m_flags & multifile) && num_files() > 1)
 				ensure_trailing_slash(ent.url);
 			m_web_seeds.push_back(ent);
 		}
@@ -1392,7 +1385,7 @@ namespace {
 				if (url.string_length() == 0) continue;
 				web_seed_entry ent(maybe_url_encode(url.string_value().to_string())
 					, web_seed_entry::url_seed);
-				if (m_flags & multifile)
+				if ((m_flags & multifile) && num_files() > 1)
 					ensure_trailing_slash(ent.url);
 				if (!unique.insert(ent.url).second) continue;
 				m_web_seeds.push_back(ent);

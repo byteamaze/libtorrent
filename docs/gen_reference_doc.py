@@ -34,6 +34,8 @@ overviews = {}
 # maps names -> URL
 symbols = {}
 
+global orphaned_export
+
 # some files that need pre-processing to turn symbols into
 # links into the reference documentation
 preprocess_rst = \
@@ -75,10 +77,12 @@ category_mapping = {
     'add_torrent_params.hpp': 'Core',
     'session_status.hpp': 'Core',
     'error_code.hpp': 'Error Codes',
-    'storage.hpp': 'Custom Storage',
     'storage_defs.hpp': 'Storage',
     'file_storage.hpp': 'Storage',
-    'file_pool.hpp': 'Custom Storage',
+    'disk_interface.hpp': 'Custom Storage',
+    'disk_io_thread.hpp': 'Storage',
+    'disabled_disk_io.hpp': 'Storage',
+    'posix_disk_io.hpp': 'Storage',
     'extensions.hpp': 'Plugins',
     'ut_metadata.hpp': 'Plugins',
     'ut_pex.hpp': 'Plugins',
@@ -100,7 +104,6 @@ category_mapping = {
     'bitfield.hpp': 'Utility',
     'sha1_hash.hpp': 'Utility',
     'hasher.hpp': 'Utility',
-    'hasher512.hpp': 'Utility',
     'identify_client.hpp': 'Utility',
     'ip_filter.hpp': 'Filter',
     'session_settings.hpp': 'Settings',
@@ -113,7 +116,7 @@ category_mapping = {
 category_fun_mapping = {
     'min_memory_usage()': 'Settings',
     'high_performance_seed()': 'Settings',
-    'cache_status': 'Core',
+    'default_disk_io_constructor()': 'Storage'
 }
 
 
@@ -283,6 +286,9 @@ def parse_function(lno, lines, filename):
     end_paren = 0
     signature = ''
 
+    global orphaned_export
+    orphaned_export = False
+
     while lno < len(lines):
         line = lines[lno].strip()
         lno += 1
@@ -357,6 +363,9 @@ def parse_class(lno, lines, filename):
         class_type = 'class'
 
     name = decl.split(':')[0].replace('class ', '').replace('struct ', '').replace('final', '').strip()
+
+    global orphaned_export
+    orphaned_export = False
 
     while lno < len(lines):
         line = lines[lno].strip()
@@ -571,7 +580,7 @@ def parse_enum(lno, lines, filename):
                     if '=' in v:
                         val = int(v.split('=')[1].strip(), 0)
                     valstr = str(val)
-                except BaseException:
+                except Exception:
                     pass
 
                 if '=' in v:
@@ -695,14 +704,34 @@ for filename in files:
 
     blanks = 0
     lno = 0
+    global orphaned_export
+    orphaned_export = False
+
     while lno < len(lines):
         line = lines[lno].strip()
+
+        if orphaned_export:
+            print('ERROR: TORRENT_EXPORT without function or class!\n%s:%d\n%s' % (filename, lno, line))
+            sys.exit(1)
+
         lno += 1
 
         if line == '':
             blanks += 1
             context = ''
             continue
+
+        if 'TORRENT_EXPORT' in line.split() \
+                and 'ifndef TORRENT_EXPORT' not in line \
+                and 'define TORRENT_DEPRECATED_EXPORT TORRENT_EXPORT' not in line \
+                and 'define TORRENT_EXPORT' not in line \
+                and 'for TORRENT_EXPORT' not in line \
+                and 'TORRENT_EXPORT TORRENT_CFG' not in line \
+                and 'extern TORRENT_EXPORT ' not in line \
+                and 'struct TORRENT_EXPORT ' not in line:
+            orphaned_export = True
+            if verbose:
+                print('maybe orphaned: %s\n' % line)
 
         if line.startswith('//') and line[2:].strip() == 'OVERVIEW':
             # this is a section overview

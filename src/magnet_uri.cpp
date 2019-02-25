@@ -109,18 +109,19 @@ namespace libtorrent {
 
 	namespace {
 		torrent_handle add_magnet_uri_deprecated(session& ses, std::string const& uri
-			, add_torrent_params p, error_code& ec)
+			, add_torrent_params const& p, error_code& ec)
 		{
-			parse_magnet_uri(uri, p, ec);
+			add_torrent_params params(p);
+			parse_magnet_uri(uri, params, ec);
 			if (ec) return torrent_handle();
-			return ses.add_torrent(std::move(p), ec);
+			return ses.add_torrent(std::move(params), ec);
 		}
 	}
 
 	torrent_handle add_magnet_uri(session& ses, std::string const& uri
-		, add_torrent_params p, error_code& ec)
+		, add_torrent_params const& p, error_code& ec)
 	{
-		return add_magnet_uri_deprecated(ses, uri, std::move(p), ec);
+		return add_magnet_uri_deprecated(ses, uri, p, ec);
 	}
 
 #ifndef BOOST_NO_EXCEPTIONS
@@ -128,14 +129,12 @@ namespace libtorrent {
 		, std::string const& save_path
 		, storage_mode_t storage_mode
 		, bool paused
-		, storage_constructor_type sc
-		, void* userdata)
+		, void*)
 	{
-		add_torrent_params params(std::move(sc));
+		add_torrent_params params;
 		error_code ec;
 		parse_magnet_uri(uri, params, ec);
 		params.storage_mode = storage_mode;
-		params.userdata = userdata;
 		params.save_path = save_path;
 
 		if (paused) params.flags |= add_torrent_params::flag_paused;
@@ -145,10 +144,10 @@ namespace libtorrent {
 	}
 
 	torrent_handle add_magnet_uri(session& ses, std::string const& uri
-		, add_torrent_params p)
+		, add_torrent_params const& p)
 	{
 		error_code ec;
-		torrent_handle ret = add_magnet_uri_deprecated(ses, uri, std::move(p), ec);
+		torrent_handle ret = add_magnet_uri_deprecated(ses, uri, p, ec);
 		if (ec) aux::throw_ex<system_error>(ec);
 		return ret;
 	}
@@ -183,6 +182,16 @@ namespace libtorrent {
 			std::tie(name, sv) = split_string(sv, '=');
 			string_view value;
 			std::tie(value, sv) = split_string(sv, '&');
+
+			// parameter names are allowed to have a .<number>-suffix.
+			// the number has no meaning, just strip it
+			// if the characters after the period are not digits, don't strip
+			// anything
+			string_view number;
+			string_view stripped_name;
+			std::tie(stripped_name, number) = split_string(name, '.');
+			if (std::all_of(number.begin(), number.end(), [](char const c) { return is_digit(c); } ))
+				name = stripped_name;
 
 			if (name == "dn"_sv) // display name
 			{

@@ -36,7 +36,7 @@ POSSIBILITY OF SUCH DAMAGE.
 #include "libtorrent/config.hpp"
 #include "libtorrent/fwd.hpp"
 #include "libtorrent/address.hpp"
-#include "libtorrent/io_service.hpp"
+#include "libtorrent/io_context.hpp"
 #include "libtorrent/time.hpp"
 #include "libtorrent/disk_buffer_holder.hpp"
 #include "libtorrent/error_code.hpp"
@@ -47,6 +47,7 @@ POSSIBILITY OF SUCH DAMAGE.
 #include "libtorrent/session_types.hpp"
 #include "libtorrent/flags.hpp"
 #include "libtorrent/link.hpp" // for torrent_list_index_t
+#include "libtorrent/sha1_hash.hpp"
 
 #include <functional>
 #include <memory>
@@ -159,7 +160,7 @@ namespace aux {
 		virtual alert_manager& alerts() = 0;
 
 		virtual torrent_peer_allocator_interface& get_peer_allocator() = 0;
-		virtual io_service& get_io_service() = 0;
+		virtual io_context& get_context() = 0;
 		virtual resolver_interface& get_resolver() = 0;
 
 		virtual bool has_connection(peer_connection* p) const = 0;
@@ -233,8 +234,11 @@ namespace aux {
 		virtual void apply_settings_pack(std::shared_ptr<settings_pack> pack) = 0;
 		virtual session_settings const& settings() const = 0;
 
-		virtual void queue_tracker_request(tracker_request& req
+		// the tracker request object must be moved in
+		virtual void queue_tracker_request(tracker_request&& req
 			, std::weak_ptr<request_callback> c) = 0;
+		void queue_tracker_request(tracker_request const& req
+			, std::weak_ptr<request_callback> c) = delete;
 
 		// peer-classes
 		virtual void set_peer_classes(peer_class_set* s, address const& a, int st) = 0;

@@ -236,11 +236,6 @@ class test_torrent_handle(unittest.TestCase):
         # from python
         self.h.scrape_tracker()
 
-    def test_cache_info(self):
-        self.setup()
-        cs = self.ses.get_cache_info(self.h)
-        self.assertEqual(cs.pieces, [])
-
     def test_unknown_torrent_parameter(self):
         self.ses = lt.session(settings)
         try:
@@ -297,6 +292,7 @@ class test_torrent_info(unittest.TestCase):
         self.assertEqual(f.file_name(0), 'test_torrent')
         self.assertEqual(f.file_size(0), 1234)
         self.assertEqual(info.total_size(), 1234)
+        self.assertEqual(info.creation_date(), 0)
 
     def test_metadata(self):
         ti = lt.torrent_info('base.torrent')
@@ -692,6 +688,23 @@ class test_operation_t(unittest.TestCase):
         self.assertEqual(lt.operation_name(lt.operation_t.mkdir), "mkdir")
         self.assertEqual(lt.operation_name(lt.operation_t.partfile_write), "partfile_write")
         self.assertEqual(lt.operation_name(lt.operation_t.hostname_lookup), "hostname_lookup")
+
+
+class test_error_code(unittest.TestCase):
+
+    def test_error_code(self):
+
+        a = lt.error_code()
+        a = lt.error_code(10, lt.libtorrent_category())
+        self.assertEqual(a.category().name(), 'libtorrent')
+
+        self.assertEqual(lt.libtorrent_category().name(), 'libtorrent')
+        self.assertEqual(lt.upnp_category().name(), 'upnp')
+        self.assertEqual(lt.http_category().name(), 'http')
+        self.assertEqual(lt.socks_category().name(), 'socks')
+        self.assertEqual(lt.bdecode_category().name(), 'bdecode')
+        self.assertEqual(lt.generic_category().name(), 'generic')
+        self.assertEqual(lt.system_category().name(), 'system')
 
 
 if __name__ == '__main__':

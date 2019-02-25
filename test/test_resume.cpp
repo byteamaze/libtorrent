@@ -890,7 +890,7 @@ TORRENT_TEST(backwards_compatible_resume_info_dict)
 	rd["name"] = ti->name();
 	rd["info-hash"] = ti->info_hash();
 	auto metainfo = ti->metadata();
-	rd["info"] = bdecode(metainfo.get(), metainfo.get() + ti->metadata_size());
+	rd["info"] = bdecode({metainfo.get(), ti->metadata_size()});
 	std::vector<char> resume_data;
 	bencode(back_inserter(resume_data), rd);
 
@@ -917,7 +917,7 @@ TORRENT_TEST(resume_info_dict)
 	rd["name"] = ti->name();
 	rd["info-hash"] = ti->info_hash();
 	auto metainfo = ti->metadata();
-	rd["info"] = bdecode(metainfo.get(), metainfo.get() + ti->metadata_size());
+	rd["info"] = bdecode({metainfo.get(), ti->metadata_size()});
 	std::vector<char> resume_data;
 	bencode(back_inserter(resume_data), rd);
 
@@ -1080,7 +1080,7 @@ TORRENT_TEST(seed_mode_load_peers)
 	p.ti = ti;
 	p.save_path = ".";
 	p.flags |= torrent_flags::seed_mode;
-	p.peers.push_back(tcp::endpoint(address::from_string("1.2.3.4"), 12345));
+	p.peers.push_back(tcp::endpoint(make_address("1.2.3.4"), 12345));
 
 	torrent_handle h = ses.add_torrent(p);
 
@@ -1097,7 +1097,7 @@ TORRENT_TEST(seed_mode_load_peers)
 
 	auto const& peers = a->params.peers;
 	TEST_EQUAL(peers.size(), 1);
-	TEST_CHECK(peers[0] == tcp::endpoint(address::from_string("1.2.3.4"), 12345));
+	TEST_CHECK(peers[0] == tcp::endpoint(make_address("1.2.3.4"), 12345));
 }
 
 TORRENT_TEST(resume_save_load)

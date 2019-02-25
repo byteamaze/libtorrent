@@ -11,14 +11,13 @@ libtorrent manual
 downloading and building
 ========================
 
-To download the latest version of libtorrent, clone the `github repo`__.
+To download the latest version of libtorrent, clone the `github repository`__.
 
 __ https://github.com/arvidn/libtorrent
 
-The build systems supported "out of the box" in libtorrent are boost-build v2
-(BBv2) and autotools (for unix-like systems). If you still can't build after
-following these instructions, you can usually get help in the ``#libtorrent``
-IRC channel on ``irc.freenode.net``.
+The build systems supported "out of the box" in libtorrent are boost-build
+cmake. If you still can't build after following these instructions, you can
+usually get help in the ``#libtorrent`` IRC channel on ``irc.freenode.net``.
 
 .. warning::
 
@@ -32,21 +31,20 @@ IRC channel on ``irc.freenode.net``.
 	link against libtorrent as when you build it.
 
 	Boost-build supports propagating configuration options to dependencies.
-	When building using the makefiles, this is handled by setting the
-	configuration options in the pkg-config file. Always use pkg-config
-	when linking against libtorrent.
 
 building from git
 -----------------
 
-To build libtorrent from git you need to clone the libtorrent repo from
-github. If you downloaded a release `tarball`__, you can skip this section.
+To build libtorrent from git you need to clone the libtorrent repository from
+github. Note that the git repository depends on other git repositories via
+submodules, which also need to be initialized and updated. If you downloaded a
+release `tarball`__, you can skip this section.
 
 __ https://github.com/arvidn/libtorrent/releases/latest
 
 ::
 
-	git clone https://github.com/arvidn/libtorrent.git
+	git clone --recurse-submodules https://github.com/arvidn/libtorrent.git
 
 
 building with BBv2
@@ -79,10 +77,8 @@ You'll find boost here__.
 __ https://www.boost.org/users/download/#live
 
 Extract the archive to some directory where you want it. For the sake of this
-guide, let's assume you extract the package to ``c:\boost_1_68_0`` (I'm using
-a windows path in this example since if you're on linux/unix you're more likely
-to use the autotools). You'll need at least version 1.49 of the boost library
-in order to build libtorrent.
+guide, let's assume you extract the package to ``c:\boost_1_69_0``. You'll
+need at least version 1.66 of the boost library in order to build libtorrent.
 
 
 Step 2: Setup BBv2
@@ -93,11 +89,11 @@ step. If not, you need to build boost build from the boost source package.
 
 First you need to build ``b2``. You do this by opening a terminal (In windows,
 run ``cmd``). Change directory to ``c:\boost_1_68_0\tools\build``. Then run the
-script called ``bootstrap.bat`` or ``bootstrap.sh`` on a unix system. This will
-build ``b2`` and place it in a directory ``src/engine/bin.<os-architecture>``.
-Copy the ``b2.exe`` (or ``b2`` on a unix system) to a place that's in you
-shell's ``PATH``. On linux systems a place commonly used may be
-``/usr/local/bin`` or on windows ``c:\windows`` (you can also add directories to
+script called ``bootstrap.bat`` or ``bootstrap.sh`` on a Unix system. This will
+build ``b2`` and place it in a directory ``src/engine/bin.<architecture>``.
+Copy the ``b2.exe`` (or ``b2`` on a Unix system) to a place that's in you
+shell's ``PATH``. On Linux systems a place commonly used may be
+``/usr/local/bin`` or on Windows ``c:\windows`` (you can also add directories to
 the search paths by modifying the environment variable called ``PATH``).
 
 Now you have ``b2`` installed. ``b2`` can be considered an interpreter
@@ -129,13 +125,13 @@ If you use GCC, add the line::
   using gcc ;
 
 If you have more than one version of GCC installed, you can add the
-commandline used to invoke g++ after the version number, like this::
+command line used to invoke g++ after the version number, like this::
 
   using gcc : 6.0 : g++-6 ;
   using gcc : 7.0 : g++-7 ;
 
-Another toolset worth mentioning is the ``darwin`` toolset (For MacOS X).
-From Tiger (10.4) MacOS X comes with both GCC 3.3 and GCC 4.0. Then you can
+Another toolset worth mentioning is the ``darwin`` toolset (for macOS).
+From Tiger (10.4) macOS comes with both GCC 3.3 and GCC 4.0. Then you can
 use the following toolsets::
 
   using darwin : 3.3 : g++-3.3 ;
@@ -157,7 +153,7 @@ variable is set pointing to one. If you're building boost from source, set
 ``BOOST_ROOT`` to your boost directory, e.g. ``c:\boost_1_68_0``.
 
 Then the only thing left is simply to invoke ``b2``. If you want to specify
-a specific toolset to use (compiler) you can just add that to the commandline.
+a specific toolset to use (compiler) you can just add that to the command line.
 For example::
 
   b2 msvc-14.0
@@ -166,7 +162,7 @@ For example::
 
 .. note::
 
-	If the environment variable ``BOOST_ROOT`` is not set, the jamfile will
+	If the environment variable ``BOOST_ROOT`` is not set, the Jamfile will
 	attempt to link against "installed" boost libraries. i.e. assume the headers
 	and libraries are available in default search paths.
 	In this case it's critical that you build your project with the same version
@@ -176,11 +172,11 @@ To build different versions you can also just add the name of the build
 variant. Some default build variants in BBv2 are ``release``, ``debug``,
 ``profile``.
 
-You can build libtorrent as a dll too, by typing ``link=shared``, or
+You can build libtorrent as a DLL too, by typing ``link=shared``, or
 ``link=static`` to build a static library.
 
 If you want to explicitly say how to link against the runtime library, you
-can set the ``runtime-link`` feature on the commandline, either to ``shared``
+can set the ``runtime-link`` feature on the command line, either to ``shared``
 or ``static``. Most operating systems will only allow linking shared against
 the runtime, but on windows you can do both. Example::
 
@@ -201,7 +197,7 @@ the runtime, but on windows you can do both. Example::
 
 .. note::
 
-  Some linux systems requires linking against ``librt`` in order to access
+  Some Linux systems requires linking against ``librt`` in order to access
   the POSIX clock functions. If you get an error complaining about a missing
   symbol ``clock_gettime``, you have to give ``need-librt=yes`` on the
   b2 command line. This will make libtorrent link against ``librt``.
@@ -222,7 +218,7 @@ Note that if you're building on windows using the ``msvc`` toolset, you cannot r
 from a cygwin terminal, you'll have to run it from a ``cmd`` terminal. The same goes for
 cygwin, if you're building with gcc in cygwin you'll have to run it from a cygwin terminal.
 Also, make sure the paths are correct in the different environments. In cygwin, the paths
-(``BOOST_BUILD_PATH`` and ``BOOST_ROOT``) should be in the typical unix-format (e.g.
+(``BOOST_BUILD_PATH`` and ``BOOST_ROOT``) should be in the typical Unix-format (e.g.
 ``/cygdrive/c/boost_1_68_0``). In the windows environment, they should have the typical
 windows format (``c:/boost_1_68_0``).
 
@@ -237,7 +233,8 @@ For more build configuration flags see `Build configurations`_.
 When enabling linking against openssl (by setting the ``crypto`` feature to
 ``openssl``) the Jamfile will look in some default directory for the openssl
 headers and libraries. On macOS, it will look for the homebrew openssl package.
-On windows it will look in ``c:\openssl`` and mingw in ``c:\OpenSSL-Win32``.
+On Windows, it will look in ``C:\OpenSSL-Win32``, or ``C:\OpenSSL-Win64`` if
+compiling in 64-bit.
 
 To customize the library path and include path for openssl, set the features
 ``openssl-lib`` and ``openssl-include`` respectively.
@@ -311,12 +308,6 @@ Build features:
 |                          | * ``pre1.1`` - link against the old windows names  |
 |                          |   (i.e. ``ssleay32`` and ``libeay32``.             |
 +--------------------------+----------------------------------------------------+
-| ``piece-allocator``      | * ``valloc`` - default, uses ``valloc()`` or       |
-|                          |   ``_aligned_malloc()`` for disk cache blocks.     |
-|                          |   send buffers.                                    |
-|                          | * ``memalign`` - uses ``memalign()``.              |
-|                          | * ``posix_memalign`` - uses ``posix_memalign()``.  |
-+--------------------------+----------------------------------------------------+
 | ``link``                 | * ``static`` - builds libtorrent as a static       |
 |                          |   library (.a / .lib)                              |
 |                          | * ``shared`` - builds libtorrent as a shared       |
@@ -358,7 +349,7 @@ Build features:
 |                          |   functions are used.                              |
 +--------------------------+----------------------------------------------------+
 | ``iconv``                | * ``auto`` - use iconv for string conversions for  |
-|                          |   linux and mingw and other posix platforms.       |
+|                          |   Linux and MinGW and other posix platforms.       |
 |                          | * ``on`` - force use of iconv                      |
 |                          | * ``off`` - force not using iconv (disables locale |
 |                          |   awareness except on windows).                    |
@@ -393,23 +384,34 @@ Build features:
 |                          |   building a static library to be linked into a    |
 |                          |   shared library).                                 |
 +--------------------------+----------------------------------------------------+
+| ``mmap-disk-io``         | * ``on`` - default. Enable mmap disk storage (if   |
+|                          |   available.                                       |
+|                          | * ``off`` - disable mmap storage, and fall back to |
+|                          |   single-threaded, portable file operations.       |
++--------------------------+----------------------------------------------------+
 
 The ``variant`` feature is *implicit*, which means you don't need to specify
 the name of the feature, just the value.
-
-The logs created when building vlog or log mode are put in a directory called
-``libtorrent_logs`` in the current working directory.
 
 When building the example client on windows, you need to build with
 ``link=static`` otherwise you may get unresolved external symbols for some
 boost.program-options symbols.
 
 For more information, see the `Boost build v2 documentation`__, or more
-specifically `the section on builtin features`__.
+specifically `the section on built-in features`__.
 
 __ https://boostorg.github.io/build/manual/develop/index.html
 __ https://boostorg.github.io/build/manual/develop/index.html#bbv2.overview.builtins.features
 
+
+Step 4: Installing libtorrent
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+To install libtorrent run ``b2`` with the ``install`` target::
+
+	b2 install --prefix=/usr/local
+
+Change the value of the ``--prefix`` argument to install it in a different location.
 
 building with cmake
 -------------------
@@ -429,10 +431,10 @@ and ``cd`` there::
 
 Run ``cmake`` in the build directory, like this::
 
-	cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_STANDARD=11 -G Ninja ..
+	cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_STANDARD=14 -G Ninja ..
 
-The ``CMAKE_CXX_STANDARD`` has to be at least 11, but you may want to raise it
-to ``14`` or ``17`` if your project use a newer version of the C++ standard.
+The ``CMAKE_CXX_STANDARD`` has to be at least 14, but you may want to raise it
+to ``17`` if your project use a newer version of the C++ standard.
 
 .. warning::
 
@@ -452,7 +454,7 @@ Other build options are:
 |                       | against the runtime libraries.                    |
 +-----------------------+---------------------------------------------------+
 | ``build_tests``       | Defaults ``OFF``. Also build the libtorrent       |
-|                       | testa.                                            |
+|                       | tests.                                            |
 +-----------------------+---------------------------------------------------+
 | ``build_examples``    | Defaults ``OFF``. Also build the examples in the  |
 |                       | examples directory.                               |
@@ -484,7 +486,7 @@ If you enabled test in the configuration step, to run them, run::
 
 building with other build systems
 ---------------------------------
-  
+
 If you're building in MS Visual Studio, you may have to set the compiler
 options "force conformance in for loop scope", "treat wchar_t as built-in
 type" and "Enable Run-Time Type Info" to Yes.
@@ -548,7 +550,7 @@ defines you can use to control the build.
 +----------------------------------------+-------------------------------------------------+
 | ``TORRENT_DISABLE_EXTENSIONS``         | When defined, libtorrent plugin support is      |
 |                                        | disabled along with support for the extension   |
-|                                        | handskake (BEP 10).                             |
+|                                        | handshake (BEP 10).                             |
 +----------------------------------------+-------------------------------------------------+
 | ``TORRENT_USE_INVARIANT_CHECKS``       | If defined to non-zero, this will enable        |
 |                                        | internal invariant checks in libtorrent.        |
@@ -561,7 +563,7 @@ defines you can use to control the build.
 |                                        | or for running before releases.                 |
 +----------------------------------------+-------------------------------------------------+
 | ``TORRENT_NO_DEPRECATE``               | This will exclude all deprecated functions from |
-|                                        | the header files and cpp files.                 |
+|                                        | the header files and source files.              |
 +----------------------------------------+-------------------------------------------------+
 | ``TORRENT_PRODUCTION_ASSERTS``         | Define to either 0 or 1. Enables assert logging |
 |                                        | in release builds.                              |
@@ -571,10 +573,12 @@ defines you can use to control the build.
 | ``TORRENT_USE_SYSTEM_ASSERTS``         | Uses the libc assert macro rather then the      |
 |                                        | custom one.                                     |
 +----------------------------------------+-------------------------------------------------+
+| ``TORRENT_HAVE_MMAP``                  | Define as 0 to disable mmap support.            |
++----------------------------------------+-------------------------------------------------+
 
 .. _`BEP 38`: https://www.bittorrent.org/beps/bep_0038.html
 
-If you experience that libtorrent uses unreasonable amounts of cpu, it will
+If you experience that libtorrent uses unreasonable amounts of CPU, it will
 definitely help to define ``NDEBUG``, since it will remove the invariant checks
 within the library.
 
